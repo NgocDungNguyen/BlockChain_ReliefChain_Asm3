@@ -1,0 +1,232 @@
+/* Requests.module.css */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+}
+
+.fetchingBadge {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  padding: 2px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 99px;
+}
+
+.emptyState {
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
+  padding: 40px;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.requestList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 20px;
+}
+
+.requestCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: var(--shadow);
+  transition: border-color 0.2s;
+}
+
+.requestCard:hover {
+  border-color: var(--color-accent);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.requestId {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.statusBadge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 9px;
+  border-radius: 99px;
+}
+
+.statusPending {
+  background: rgba(245,158,11,0.15);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning);
+}
+
+.statusReady {
+  background: rgba(16,185,129,0.15);
+  color: var(--color-success);
+  border: 1px solid var(--color-success);
+}
+
+.statusExecuted {
+  background: rgba(45,125,210,0.15);
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+}
+
+.statusRejected {
+  background: rgba(239,68,68,0.15);
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger);
+}
+
+.description {
+  font-size: 0.92rem;
+  color: var(--color-text);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.cardMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.metaRow {
+  display: flex;
+  gap: 8px;
+  font-size: 0.85rem;
+  align-items: baseline;
+}
+
+.metaLabel {
+  color: var(--color-text-muted);
+  min-width: 90px;
+}
+
+.metaValue {
+  color: var(--color-text);
+}
+
+.cidLink {
+  color: var(--color-accent);
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+
+.cidLink:hover {
+  text-decoration: underline;
+}
+
+.noCid {
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+}
+
+.voteBar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.voteLabel {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+
+.voteTrack {
+  height: 6px;
+  background: var(--color-surface-2);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.voteFillApprove {
+  height: 100%;
+  background: var(--color-success);
+  border-radius: 99px;
+  transition: width 0.4s ease;
+  min-width: 0;
+}
+
+.releaseBtn {
+  margin-top: 4px;
+  background: var(--color-success);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 10px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 40px;
+  transition: opacity 0.2s;
+}
+
+.releaseBtn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.releaseBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnSpinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.cardError {
+  background: rgba(239,68,68,0.12);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  color: #fca5a5;
+}
+
+.cardSuccess {
+  background: rgba(16,185,129,0.12);
+  border: 1px solid var(--color-success);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  color: #6ee7b7;
+}

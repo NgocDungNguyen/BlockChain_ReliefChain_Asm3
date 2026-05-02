@@ -1,0 +1,41 @@
+{
+  "name": "reliefchain-backend",
+  "version": "1.0.0",
+  "description": "ReliefChain smart contracts — Campaign.sol",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "test:gas": "REPORT_GAS=true hardhat test",
+    "coverage": "hardhat coverage",
+    "node": "hardhat node",
+    "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
+    "deploy:amoy": "hardhat run scripts/deploy.ts --network amoy",
+    "clean": "hardhat clean"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^1.0.6",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.8",
+    "@nomicfoundation/hardhat-toolbox": "2.0.2",
+    "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "@nomiclabs/hardhat-etherscan": "^3.1.7",
+    "@typechain/ethers-v5": "^10.2.1",
+    "@typechain/hardhat": "^6.1.6",
+    "@types/chai": "4.3.16",
+    "@types/mocha": "10.0.7",
+    "@types/node": "20.14.2",
+    "chai": "4.4.1",
+    "dotenv": "16.4.5",
+    "fp-ts": "^2.16.9",
+    "hardhat": "2.19.5",
+    "hardhat-gas-reporter": "1.0.9",
+    "io-ts": "^1.10.4",
+    "solidity-coverage": "^0.8.12",
+    "ts-node": "10.9.2",
+    "typechain": "^8.3.2",
+    "typescript": "5.3.3"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.9.6",
+    "ethers": "5.7.2"
+  }
+}
