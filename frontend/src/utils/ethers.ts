@@ -88,6 +88,21 @@ export type CampaignRecord = {
   createdAt:       ethers.BigNumber;
 };
 
+// ─── Proposal record type ─────────────────────────────────────────────────────
+export type ProposalRecord = {
+  proposer:       string;
+  name:           string;
+  targetWei:      ethers.BigNumber;
+  validators:     string[];
+  threshold:      number;
+  ipfsCID:        string;
+  approvalCount:  number;
+  rejectionCount: number;
+  executed:       boolean;
+  rejected:       boolean;
+  createdAt:      ethers.BigNumber;
+};
+
 // ─── Fetch all campaigns from factory ────────────────────────────────────────
 export async function fetchAllCampaigns(): Promise<CampaignRecord[]> {
   if (!FACTORY_ADDRESS) return [];
@@ -106,6 +121,111 @@ export async function fetchAllCampaigns(): Promise<CampaignRecord[]> {
   } catch {
     return [];
   }
+}
+
+// ─── Proposal helpers ─────────────────────────────────────────────────────────
+export async function fetchAllProposals(): Promise<ProposalRecord[]> {
+  if (!FACTORY_ADDRESS) return [];
+  try {
+    const factory = getReadOnlyFactory();
+    const raw = await factory.getProposals() as ProposalRecord[];
+    return raw.map((p) => ({
+      proposer:       p.proposer,
+      name:           p.name,
+      targetWei:      p.targetWei,
+      validators:     Array.from(p.validators),
+      threshold:      Number(p.threshold),
+      ipfsCID:        p.ipfsCID,
+      approvalCount:  Number(p.approvalCount),
+      rejectionCount: Number(p.rejectionCount),
+      executed:       p.executed,
+      rejected:       p.rejected,
+      createdAt:      p.createdAt,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function checkIsGlobalValidator(address: string): Promise<boolean> {
+  if (!FACTORY_ADDRESS || !address) return false;
+  try {
+    const factory = getReadOnlyFactory();
+    return (await factory.isGlobalValidator(address)) as boolean;
+  } catch {
+    return false;
+  }
+}
+
+export async function getProposalHasVoted(proposalId: number, address: string): Promise<boolean> {
+  if (!FACTORY_ADDRESS) return false;
+  try {
+    const factory = getReadOnlyFactory();
+    return (await factory.proposalHasVoted(proposalId, address)) as boolean;
+  } catch {
+    return false;
+  }
+}
+
+export async function getValidatorStake(address: string): Promise<ethers.BigNumber> {
+  if (!FACTORY_ADDRESS || !address) return ethers.BigNumber.from(0);
+  try {
+    const factory = getReadOnlyFactory();
+    return (await factory.validatorStake(address)) as ethers.BigNumber;
+  } catch {
+    return ethers.BigNumber.from(0);
+  }
+}
+
+export async function getMinimumStake(): Promise<ethers.BigNumber> {
+  if (!FACTORY_ADDRESS) return ethers.BigNumber.from(0);
+  try {
+    const factory = getReadOnlyFactory();
+    return (await factory.minimumStake()) as ethers.BigNumber;
+  } catch {
+    return ethers.BigNumber.from(0);
+  }
+}
+
+export async function submitProposal(
+  signer:     ethers.Signer,
+  name:       string,
+  targetWei:  ethers.BigNumber,
+  validators: string[],
+  threshold:  number,
+  ipfsCID:    string
+): Promise<ethers.ContractReceipt> {
+  const factory = getSigningFactory(signer);
+  const tx = await factory.submitProposal(name, targetWei, validators, threshold, ipfsCID) as ethers.ContractTransaction;
+  return tx.wait();
+}
+
+export async function voteOnProposalTx(
+  signer:     ethers.Signer,
+  proposalId: number,
+  approve:    boolean
+): Promise<ethers.ContractReceipt> {
+  const factory = getSigningFactory(signer);
+  const tx = await factory.voteOnProposal(proposalId, approve) as ethers.ContractTransaction;
+  return tx.wait();
+}
+
+export async function stakeAsValidator(
+  signer:    ethers.Signer,
+  amountWei: ethers.BigNumber
+): Promise<ethers.ContractReceipt> {
+  const factory = getSigningFactory(signer);
+  const tx = await factory.stake({ value: amountWei }) as ethers.ContractTransaction;
+  return tx.wait();
+}
+
+export async function withdrawValidatorStake(
+  signer:    ethers.Signer,
+  amountWei: ethers.BigNumber
+): Promise<ethers.ContractReceipt> {
+  const factory = getSigningFactory(signer);
+  const tx = await factory.withdrawStake(amountWei) as ethers.ContractTransaction;
+  return tx.wait();
 }
 
 // ─── Wallet event subscriptions ───────────────────────────────────────────────
