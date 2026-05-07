@@ -16,6 +16,7 @@ const config: HardhatUserConfig = {
         enabled: true,
         runs: 200,
       },
+      viaIR: true,
     },
   },
 
@@ -25,6 +26,7 @@ const config: HardhatUserConfig = {
       chainId: 31337,
       gas: 12_000_000,
       blockGasLimit: 12_000_000,
+      allowUnlimitedContractSize: true,
       // Deterministic accounts for reproducible frontend .env values.
       accounts: {
         count: 20,

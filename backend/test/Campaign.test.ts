@@ -535,7 +535,11 @@ describe("CampaignFactory", function () {
       await ethers.getSigners();
 
     const Factory = await ethers.getContractFactory("CampaignFactory");
-    factory = (await Factory.deploy()) as CampaignFactory;
+    factory = (await Factory.deploy(
+      [validator1.address, validator2.address, validator3.address],
+      2,
+      0   // minimumStake = 0 so existing tests need no staking
+    )) as CampaignFactory;
     await factory.deployed();
   });
 
@@ -679,9 +683,7 @@ describe("CampaignFactory", function () {
   });
 
   it("getCampaign reverts on out-of-range index", async function () {
-    await expect(factory.getCampaign(0)).to.be.revertedWith(
-      "CampaignFactory: index out of range"
-    );
+    await expect(factory.getCampaign(0)).to.be.revertedWithCustomError(factory, "IndexOutOfRange");
   });
 
   it("factory propagates Campaign constructor validation (bad threshold)", async function () {
@@ -693,5 +695,548 @@ describe("CampaignFactory", function () {
         ethers.utils.parseEther("100")
       )
     ).to.be.revertedWith("Campaign: threshold > validator count");
+  });
+});
+
+// ─── CampaignFactory — Proposal System ─────────────────────────────────────────
+describe("CampaignFactory — Proposal System", function () {
+  let factory:    CampaignFactory;
+  let admin:      SignerWithAddress;
+  let gv1:        SignerWithAddress;
+  let gv2:        SignerWithAddress;
+  let gv3:        SignerWithAddress;
+  let proposer:   SignerWithAddress;
+  let donor1:     SignerWithAddress;
+  let beneficiary:SignerWithAddress;
+  let stranger:   SignerWithAddress;
+
+  const MOCK_CID    = "QmProposalCID1234567890abcdefghijk";
+  const PROP_NAME   = "Typhoon Emergency Fund";
+  const PROP_TARGET = ethers.utils.parseEther("75");
+
+  // Deploy factory with 3-of-3 global validators, no minimum stake
+  async function deployFactory(threshold = 2, minStake: number | ethers.BigNumber = 0) {
+    const F = await ethers.getContractFactory("CampaignFactory");
+    const f = (await F.connect(admin).deploy(
+      [gv1.address, gv2.address, gv3.address],
+      threshold,
+      minStake
+    )) as CampaignFactory;
+    await f.deployed();
+    return f;
+  }
+
+  async function submitProposal(f: CampaignFactory, sender = proposer) {
+    return f.connect(sender).submitProposal(
+      PROP_NAME,
+      PROP_TARGET,
+      [gv1.address, gv2.address, gv3.address],
+      2,
+      MOCK_CID
+    );
+  }
+
+  beforeEach(async function () {
+    [admin, gv1, gv2, gv3, proposer, donor1, beneficiary, stranger] =
+      await ethers.getSigners();
+    factory = await deployFactory();
+  });
+
+  // ── Constructor ──────────────────────────────────────────────────────────────
+  describe("Constructor", function () {
+    it("stores globalValidatorThreshold and globalValidatorCount", async function () {
+      expect(await factory.globalValidatorThreshold()).to.equal(2);
+      expect(await factory.globalValidatorCount()).to.equal(3);
+    });
+
+    it("stores minimumStake", async function () {
+      const minStake = ethers.utils.parseEther("0.01");
+      const f = await deployFactory(2, minStake);
+      expect(await f.minimumStake()).to.equal(minStake);
+    });
+
+    it("assigns GLOBAL_VALIDATOR_ROLE to all supplied validators", async function () {
+      expect(await factory.isGlobalValidator(gv1.address)).to.be.true;
+      expect(await factory.isGlobalValidator(gv2.address)).to.be.true;
+      expect(await factory.isGlobalValidator(gv3.address)).to.be.true;
+      expect(await factory.isGlobalValidator(stranger.address)).to.be.false;
+    });
+
+    it("reverts with fewer than 2 global validators", async function () {
+      const F = await ethers.getContractFactory("CampaignFactory");
+      await expect(
+        F.deploy([gv1.address], 1, 0)
+      ).to.be.revertedWithCustomError(factory, "TooFewValidators");
+    });
+
+    it("reverts when threshold exceeds validator count", async function () {
+      const F = await ethers.getContractFactory("CampaignFactory");
+      await expect(
+        F.deploy([gv1.address, gv2.address], 3, 0)
+      ).to.be.revertedWithCustomError(factory, "BadThreshold");
+    });
+
+    it("reverts when threshold is zero", async function () {
+      const F = await ethers.getContractFactory("CampaignFactory");
+      await expect(
+        F.deploy([gv1.address, gv2.address], 0, 0)
+      ).to.be.revertedWithCustomError(factory, "BadThreshold");
+    });
+  });
+
+  // ── submitProposal ────────────────────────────────────────────────────────────
+  describe("submitProposal", function () {
+    it("any wallet can submit a proposal", async function () {
+      await expect(submitProposal(factory, stranger)).to.not.be.reverted;
+    });
+
+    it("stores all proposal fields correctly", async function () {
+      await submitProposal(factory);
+      const p = await factory.getProposal(0);
+      expect(p.proposer).to.equal(proposer.address);
+      expect(p.name).to.equal(PROP_NAME);
+      expect(p.targetWei).to.equal(PROP_TARGET);
+      expect(p.ipfsCID).to.equal(MOCK_CID);
+      expect(p.threshold).to.equal(2);
+      expect(p.approvalCount).to.equal(0);
+      expect(p.rejectionCount).to.equal(0);
+      expect(p.executed).to.be.false;
+      expect(p.rejected).to.be.false;
+    });
+
+    it("emits ProposalSubmitted with correct args", async function () {
+      await expect(submitProposal(factory))
+        .to.emit(factory, "ProposalSubmitted")
+        .withArgs(0, proposer.address, PROP_NAME, PROP_TARGET, MOCK_CID);
+    });
+
+    it("increments getProposalsCount", async function () {
+      expect(await factory.getProposalsCount()).to.equal(0);
+      await submitProposal(factory);
+      expect(await factory.getProposalsCount()).to.equal(1);
+    });
+
+    it("reverts on empty name", async function () {
+      await expect(
+        factory.connect(proposer).submitProposal("", PROP_TARGET, [gv1.address, gv2.address], 1, MOCK_CID)
+      ).to.be.revertedWithCustomError(factory, "EmptyName");
+    });
+
+    it("reverts on zero targetWei", async function () {
+      await expect(
+        factory.connect(proposer).submitProposal(PROP_NAME, 0, [gv1.address, gv2.address], 1, MOCK_CID)
+      ).to.be.revertedWithCustomError(factory, "ZeroTarget");
+    });
+
+    it("reverts on empty IPFS CID", async function () {
+      await expect(
+        factory.connect(proposer).submitProposal(PROP_NAME, PROP_TARGET, [gv1.address, gv2.address], 1, "")
+      ).to.be.revertedWithCustomError(factory, "EmptyIpfsCID");
+    });
+
+    it("reverts when campaign validators fewer than 2", async function () {
+      await expect(
+        factory.connect(proposer).submitProposal(PROP_NAME, PROP_TARGET, [gv1.address], 1, MOCK_CID)
+      ).to.be.revertedWithCustomError(factory, "TooFewCampaignValidators");
+    });
+
+    it("reverts when campaign threshold exceeds campaign validator count", async function () {
+      await expect(
+        factory.connect(proposer).submitProposal(PROP_NAME, PROP_TARGET, [gv1.address, gv2.address], 3, MOCK_CID)
+      ).to.be.revertedWithCustomError(factory, "BadCampaignThreshold");
+    });
+  });
+
+  // ── voteOnProposal — access & stake ──────────────────────────────────────────
+  describe("voteOnProposal — access & stake", function () {
+    beforeEach(async function () {
+      await submitProposal(factory);
+    });
+
+    it("non-global-validator cannot vote", async function () {
+      await expect(
+        factory.connect(stranger).voteOnProposal(0, true)
+      ).to.be.reverted;
+    });
+
+    it("global validator casts approval vote and emits ProposalVoted", async function () {
+      await expect(factory.connect(gv1).voteOnProposal(0, true))
+        .to.emit(factory, "ProposalVoted")
+        .withArgs(0, gv1.address, true);
+    });
+
+    it("global validator casts rejection vote and emits ProposalVoted", async function () {
+      await expect(factory.connect(gv1).voteOnProposal(0, false))
+        .to.emit(factory, "ProposalVoted")
+        .withArgs(0, gv1.address, false);
+    });
+
+    it("double-vote reverts", async function () {
+      await factory.connect(gv1).voteOnProposal(0, true);
+      await expect(
+        factory.connect(gv1).voteOnProposal(0, true)
+      ).to.be.revertedWithCustomError(factory, "AlreadyVoted");
+    });
+
+    it("invalid proposal ID reverts", async function () {
+      await expect(
+        factory.connect(gv1).voteOnProposal(99, true)
+      ).to.be.revertedWithCustomError(factory, "InvalidProposalId");
+    });
+
+    it("with minimumStake > 0: voting without stake reverts", async function () {
+      const stakeAmount = ethers.utils.parseEther("0.01");
+      const f = await deployFactory(2, stakeAmount);
+      await f.connect(proposer).submitProposal(
+        PROP_NAME, PROP_TARGET, [gv1.address, gv2.address], 1, MOCK_CID
+      );
+      // gv1 has no stake yet
+      await expect(
+        f.connect(gv1).voteOnProposal(0, true)
+      ).to.be.revertedWithCustomError(f, "InsufficientStake");
+    });
+  });
+
+  // ── voteOnProposal — approval path ───────────────────────────────────────────
+  describe("voteOnProposal — approval path", function () {
+    beforeEach(async function () {
+      await submitProposal(factory);
+    });
+
+    it("1 approval below threshold does not deploy campaign", async function () {
+      await factory.connect(gv1).voteOnProposal(0, true);
+      expect(await factory.getCampaignsCount()).to.equal(0);
+    });
+
+    it("reaching approval threshold auto-deploys campaign", async function () {
+      await factory.connect(gv1).voteOnProposal(0, true);
+      await factory.connect(gv2).voteOnProposal(0, true);
+      expect(await factory.getCampaignsCount()).to.equal(1);
+    });
+
+    it("emits ProposalApproved with correct proposalId and campaignId", async function () {
+      await factory.connect(gv1).voteOnProposal(0, true);
+      const tx = await factory.connect(gv2).voteOnProposal(0, true);
+      const receipt = await tx.wait();
+      const event = receipt.events?.find((e) => e.event === "ProposalApproved");
+      expect(event).to.not.be.undefined;
+      expect(event!.args!.proposalId).to.equal(0);
+      expect(event!.args!.campaignId).to.equal(0);
+      expect(event!.args!.campaignAddress).to.not.equal(ethers.constants.AddressZero);
+    });
+
+    it("also emits CampaignCreated on approval", async function () {
+      await factory.connect(gv1).voteOnProposal(0, true);
+      await expect(factory.connect(gv2).voteOnProposal(0, true))
+        .to.emit(factory, "CampaignCreated");
+    });
+
+    it("deployed campaign has correct name and target", async function () {
+      await factory.connect(gv1).voteOnProposal(0, true);
+      await factory.connect(gv2).voteOnProposal(0, true);
+      const record = await factory.getCampaign(0);
+      expect(record.name).to.equal(PROP_NAME);
+      expect(record.targetWei).to.equal(PROP_TARGET);
+      expect(record.threshold).to.equal(2);
+    });
+
+    it("deployed campaign owner is the proposer", async function () {
+      await factory.connect(gv1).voteOnProposal(0, true);
+      await factory.connect(gv2).voteOnProposal(0, true);
+      const record = await factory.getCampaign(0);
+      expect(record.owner).to.equal(proposer.address);
+
+      const CampaignF = await ethers.getContractFactory("Campaign");
+      const campaign = CampaignF.attach(record.campaignAddress) as Campaign;
+      const OWNER_ROLE = await campaign.OWNER_ROLE();
+      expect(await campaign.hasRole(OWNER_ROLE, proposer.address)).to.be.true;
+    });
+
+    it("approved campaign appears in getCampaigns()", async function () {
+      await factory.connect(gv1).voteOnProposal(0, true);
+      await factory.connect(gv2).voteOnProposal(0, true);
+      const all = await factory.getCampaigns();
+      expect(all.length).to.equal(1);
+      expect(all[0].name).to.equal(PROP_NAME);
+    });
+
+    it("vote on already-executed proposal reverts", async function () {
+      await factory.connect(gv1).voteOnProposal(0, true);
+      await factory.connect(gv2).voteOnProposal(0, true);
+      await expect(
+        factory.connect(gv3).voteOnProposal(0, true)
+      ).to.be.revertedWithCustomError(factory, "AlreadyExecuted");
+    });
+
+    it("approved campaign is fully functional end-to-end", async function () {
+      await factory.connect(gv1).voteOnProposal(0, true);
+      await factory.connect(gv2).voteOnProposal(0, true);
+
+      const record = await factory.getCampaign(0);
+      const CampaignF = await ethers.getContractFactory("Campaign");
+      const campaign = CampaignF.attach(record.campaignAddress) as Campaign;
+
+      // Proposer is owner — donate then create request
+      await campaign.connect(donor1).donate({ value: ethers.utils.parseEther("5") });
+      await campaign.connect(proposer).createRequest(
+        "Emergency supplies", beneficiary.address,
+        ethers.utils.parseEther("1"), MOCK_CID
+      );
+      await campaign.connect(gv1).vote(0, true);
+      await campaign.connect(gv2).vote(0, true);
+
+      const before = await beneficiary.getBalance();
+      await campaign.releaseFunds(0);
+      const after = await beneficiary.getBalance();
+      expect(after.sub(before)).to.equal(ethers.utils.parseEther("1"));
+    });
+  });
+
+  // ── voteOnProposal — rejection path ──────────────────────────────────────────
+  describe("voteOnProposal — rejection path", function () {
+    beforeEach(async function () {
+      await submitProposal(factory);
+    });
+
+    it("reaching rejection threshold marks proposal as rejected", async function () {
+      await factory.connect(gv1).voteOnProposal(0, false);
+      await factory.connect(gv2).voteOnProposal(0, false);
+      const p = await factory.getProposal(0);
+      expect(p.rejected).to.be.true;
+    });
+
+    it("emits ProposalRejected", async function () {
+      await factory.connect(gv1).voteOnProposal(0, false);
+      await expect(factory.connect(gv2).voteOnProposal(0, false))
+        .to.emit(factory, "ProposalRejected")
+        .withArgs(0);
+    });
+
+    it("rejected proposal does not deploy a campaign", async function () {
+      await factory.connect(gv1).voteOnProposal(0, false);
+      await factory.connect(gv2).voteOnProposal(0, false);
+      expect(await factory.getCampaignsCount()).to.equal(0);
+    });
+
+    it("vote on already-rejected proposal reverts", async function () {
+      await factory.connect(gv1).voteOnProposal(0, false);
+      await factory.connect(gv2).voteOnProposal(0, false);
+      await expect(
+        factory.connect(gv3).voteOnProposal(0, false)
+      ).to.be.revertedWithCustomError(factory, "AlreadyRejected");
+    });
+  });
+
+  // ── proposalHasVoted ──────────────────────────────────────────────────────────
+  describe("proposalHasVoted", function () {
+    beforeEach(async function () {
+      await submitProposal(factory);
+    });
+
+    it("returns false before voting", async function () {
+      expect(await factory.proposalHasVoted(0, gv1.address)).to.be.false;
+    });
+
+    it("returns true after voting", async function () {
+      await factory.connect(gv1).voteOnProposal(0, true);
+      expect(await factory.proposalHasVoted(0, gv1.address)).to.be.true;
+    });
+
+    it("is independent per validator per proposal", async function () {
+      await factory.connect(gv1).voteOnProposal(0, true);
+      expect(await factory.proposalHasVoted(0, gv2.address)).to.be.false;
+    });
+  });
+
+  // ── Multiple proposals ────────────────────────────────────────────────────────
+  describe("Multiple proposals", function () {
+    it("two concurrent proposals have independent vote tallies", async function () {
+      await submitProposal(factory);
+      await factory.connect(proposer).submitProposal(
+        "Second Campaign", PROP_TARGET, [gv1.address, gv2.address], 1, MOCK_CID
+      );
+      expect(await factory.getProposalsCount()).to.equal(2);
+
+      await factory.connect(gv1).voteOnProposal(0, true);
+      // proposal 1 still has 0 approvals
+      const p1 = await factory.getProposal(1);
+      expect(p1.approvalCount).to.equal(0);
+    });
+
+    it("approving proposal 1 does not affect proposal 0", async function () {
+      await submitProposal(factory);
+      await submitProposal(factory);
+      await factory.connect(gv1).voteOnProposal(1, true);
+      await factory.connect(gv2).voteOnProposal(1, true);
+      // proposal 0 still pending
+      const p0 = await factory.getProposal(0);
+      expect(p0.executed).to.be.false;
+      expect(await factory.getCampaignsCount()).to.equal(1);
+    });
+  });
+
+  // ── Backwards compatibility ───────────────────────────────────────────────────
+  describe("Backwards compatibility", function () {
+    it("createCampaign still works after factory upgrade", async function () {
+      await factory.connect(admin).createCampaign(
+        [gv1.address, gv2.address, gv3.address],
+        2,
+        "Direct Campaign",
+        ethers.utils.parseEther("100")
+      );
+      expect(await factory.getCampaignsCount()).to.equal(1);
+      const record = await factory.getCampaign(0);
+      expect(record.owner).to.equal(admin.address);
+    });
+  });
+});
+
+// ─── CampaignFactory — Staking ──────────────────────────────────────────────────
+describe("CampaignFactory — Staking", function () {
+  let factory:    CampaignFactory;
+  let admin:      SignerWithAddress;
+  let gv1:        SignerWithAddress;
+  let gv2:        SignerWithAddress;
+  let gv3:        SignerWithAddress;
+  let stranger:   SignerWithAddress;
+
+  const MIN_STAKE  = ethers.utils.parseEther("0.01");
+  const STAKE_AMOUNT = ethers.utils.parseEther("0.05");
+
+  beforeEach(async function () {
+    [admin, gv1, gv2, gv3, stranger] = await ethers.getSigners();
+    const F = await ethers.getContractFactory("CampaignFactory");
+    factory = (await F.connect(admin).deploy(
+      [gv1.address, gv2.address, gv3.address],
+      2,
+      MIN_STAKE
+    )) as CampaignFactory;
+    await factory.deployed();
+  });
+
+  // ── stake() ───────────────────────────────────────────────────────────────────
+  describe("stake()", function () {
+    it("global validator can stake ETH", async function () {
+      await factory.connect(gv1).stake({ value: STAKE_AMOUNT });
+      expect(await factory.validatorStake(gv1.address)).to.equal(STAKE_AMOUNT);
+    });
+
+    it("validatorStake accumulates across multiple calls", async function () {
+      await factory.connect(gv1).stake({ value: STAKE_AMOUNT });
+      await factory.connect(gv1).stake({ value: STAKE_AMOUNT });
+      expect(await factory.validatorStake(gv1.address)).to.equal(STAKE_AMOUNT.mul(2));
+    });
+
+    it("emits ValidatorStaked with correct args", async function () {
+      await expect(factory.connect(gv1).stake({ value: STAKE_AMOUNT }))
+        .to.emit(factory, "ValidatorStaked")
+        .withArgs(gv1.address, STAKE_AMOUNT, STAKE_AMOUNT);
+    });
+
+    it("non-validator cannot stake", async function () {
+      await expect(
+        factory.connect(stranger).stake({ value: STAKE_AMOUNT })
+      ).to.be.reverted;
+    });
+
+    it("zero-value stake reverts", async function () {
+      await expect(
+        factory.connect(gv1).stake({ value: 0 })
+      ).to.be.revertedWithCustomError(factory, "StakeMustBePositive");
+    });
+  });
+
+  // ── withdrawStake() ───────────────────────────────────────────────────────────
+  describe("withdrawStake()", function () {
+    beforeEach(async function () {
+      await factory.connect(gv1).stake({ value: STAKE_AMOUNT });
+    });
+
+    it("can withdraw full stake", async function () {
+      await factory.connect(gv1).withdrawStake(STAKE_AMOUNT);
+      expect(await factory.validatorStake(gv1.address)).to.equal(0);
+    });
+
+    it("partial withdraw leaves correct remainder", async function () {
+      const withdraw = ethers.utils.parseEther("0.02");
+      await factory.connect(gv1).withdrawStake(withdraw);
+      expect(await factory.validatorStake(gv1.address)).to.equal(STAKE_AMOUNT.sub(withdraw));
+    });
+
+    it("partial withdraw that drops below minimumStake reverts", async function () {
+      // Leave 0.005 ETH which is below MIN_STAKE (0.01)
+      const withdraw = ethers.utils.parseEther("0.045");
+      await expect(
+        factory.connect(gv1).withdrawStake(withdraw)
+      ).to.be.revertedWithCustomError(factory, "WouldDropBelowMinimum");
+    });
+
+    it("reverts when amount exceeds stake", async function () {
+      await expect(
+        factory.connect(gv1).withdrawStake(ethers.utils.parseEther("1"))
+      ).to.be.revertedWithCustomError(factory, "InsufficientStake");
+    });
+  });
+
+  // ── slashValidator() ──────────────────────────────────────────────────────────
+  describe("slashValidator()", function () {
+    beforeEach(async function () {
+      await factory.connect(gv1).stake({ value: STAKE_AMOUNT });
+    });
+
+    it("admin can slash a validator's stake", async function () {
+      await factory.connect(admin).slashValidator(gv1.address, MIN_STAKE);
+      expect(await factory.validatorStake(gv1.address)).to.equal(STAKE_AMOUNT.sub(MIN_STAKE));
+    });
+
+    it("emits ValidatorSlashed", async function () {
+      await expect(factory.connect(admin).slashValidator(gv1.address, MIN_STAKE))
+        .to.emit(factory, "ValidatorSlashed")
+        .withArgs(gv1.address, MIN_STAKE, admin.address);
+    });
+
+    it("non-admin cannot slash", async function () {
+      await expect(
+        factory.connect(gv2).slashValidator(gv1.address, MIN_STAKE)
+      ).to.be.reverted;
+    });
+
+    it("reverts when slash amount exceeds stake", async function () {
+      await expect(
+        factory.connect(admin).slashValidator(gv1.address, ethers.utils.parseEther("1"))
+      ).to.be.revertedWithCustomError(factory, "InsufficientStake");
+    });
+
+    it("reverts when target is not a validator", async function () {
+      await expect(
+        factory.connect(admin).slashValidator(stranger.address, MIN_STAKE)
+      ).to.be.revertedWithCustomError(factory, "NotAValidator");
+    });
+
+    it("slashed ETH transfers to admin", async function () {
+      const before = await admin.getBalance();
+      const slashTx = await factory.connect(admin).slashValidator(gv1.address, MIN_STAKE);
+      const receipt = await slashTx.wait();
+      const gasCost = receipt.gasUsed.mul(slashTx.gasPrice ?? 0);
+      const after = await admin.getBalance();
+      expect(after.sub(before).add(gasCost)).to.equal(MIN_STAKE);
+    });
+  });
+
+  // ── stake + vote integration ──────────────────────────────────────────────────
+  describe("stake + vote integration", function () {
+    it("validator with sufficient stake can vote on proposals", async function () {
+      await factory.connect(gv1).stake({ value: STAKE_AMOUNT });
+      await factory.connect(gv2).stake({ value: STAKE_AMOUNT });
+
+      await factory.connect(stranger).submitProposal(
+        "Flood Fund", ethers.utils.parseEther("50"),
+        [gv1.address, gv2.address], 1,
+        "QmStakeTestCID"
+      );
+      await expect(factory.connect(gv1).voteOnProposal(0, true)).to.not.be.reverted;
+      await expect(factory.connect(gv2).voteOnProposal(0, true)).to.not.be.reverted;
+      expect(await factory.getCampaignsCount()).to.equal(1);
+    });
   });
 });

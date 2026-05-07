@@ -1,0 +1,511 @@
+/* ProposalDashboard.module.css */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Panels ─────────────────────────────────────────────────────────────────── */
+.panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 28px;
+  box-shadow: var(--shadow);
+}
+
+.stakePanel {
+  border-top: 3px solid #f59e0b;
+}
+
+.submitPanel {
+  border-top: 3px solid var(--color-accent);
+}
+
+.listPanel {
+  border-top: 3px solid var(--color-validator);
+  grid-column: 1 / -1;
+}
+
+.panelTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 20px;
+}
+
+/* ── Stake management ────────────────────────────────────────────────────────── */
+.stakeRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.stakeAmount {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+.stakeLabel {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.minimumNote {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background: rgba(245,158,11,0.07);
+  border: 1px solid rgba(245,158,11,0.25);
+  border-radius: var(--radius);
+}
+
+.stakeInputRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.stakeInput {
+  flex: 1;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  color: var(--color-text);
+  padding: 9px 12px;
+  font-size: 0.9rem;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.stakeInput:focus {
+  border-color: #f59e0b;
+}
+
+.stakeBtn {
+  background: #f59e0b;
+  color: #000;
+  border: none;
+  border-radius: var(--radius);
+  padding: 9px 16px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+}
+
+.stakeBtn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.stakeBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.withdrawBtn {
+  background: transparent;
+  color: #f59e0b;
+  border: 1px solid #f59e0b;
+  border-radius: var(--radius);
+  padding: 9px 16px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+}
+
+.withdrawBtn:hover:not(:disabled) {
+  opacity: 0.75;
+}
+
+.withdrawBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Submit form ────────────────────────────────────────────────────────────── */
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.label {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.input,
+.textarea {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  color: var(--color-text);
+  padding: 10px 14px;
+  font-size: 0.92rem;
+  outline: none;
+  transition: border-color 0.2s;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.input:focus,
+.textarea:focus {
+  border-color: var(--color-accent);
+}
+
+.input:disabled,
+.textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cidPreview {
+  font-size: 0.82rem;
+  color: var(--color-success);
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  margin-bottom: 16px;
+}
+
+.cidPreview code {
+  font-family: var(--font-mono);
+}
+
+.submitBtn {
+  width: 100%;
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 13px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 46px;
+  transition: opacity 0.2s;
+}
+
+.submitBtn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.submitBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Proposal cards ─────────────────────────────────────────────────────────── */
+.sectionTitle {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 14px;
+}
+
+.emptyHint,
+.loadingHint {
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+  padding: 12px 0;
+}
+
+.proposalCard {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--color-surface-2);
+  transition: border-color 0.2s;
+}
+
+.statePending  { border-color: var(--color-border); }
+.stateApproved { border-color: rgba(16, 185, 129, 0.4); }
+.stateRejected { border-color: rgba(239, 68, 68, 0.4); }
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cardId {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.statusBadge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.badgePending {
+  background: rgba(107, 114, 128, 0.2);
+  color: #9ca3af;
+}
+
+.badgeApproved {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+}
+
+.badgeRejected {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+.cardName {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+}
+
+.cardMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+
+.cardMeta code {
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+}
+
+.cidLink {
+  color: var(--color-accent);
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-family: var(--font-mono);
+}
+
+.cidLink:hover {
+  text-decoration: underline;
+}
+
+/* Vote tally bar */
+.tallyRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tallyLabel {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  display: flex;
+  justify-content: space-between;
+}
+
+.tallyTrack {
+  height: 6px;
+  background: var(--color-surface);
+  border-radius: 3px;
+  overflow: hidden;
+  display: flex;
+  gap: 2px;
+}
+
+.tallyApprove {
+  height: 100%;
+  background: var(--color-success);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.tallyReject {
+  height: 100%;
+  background: var(--color-danger);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* Vote buttons */
+.voteButtons {
+  display: flex;
+  gap: 10px;
+}
+
+.approveBtn {
+  flex: 1;
+  background: var(--color-success);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 9px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 38px;
+  transition: opacity 0.2s;
+}
+
+.approveBtn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.rejectBtn {
+  flex: 1;
+  background: var(--color-danger);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 9px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 38px;
+  transition: opacity 0.2s;
+}
+
+.rejectBtn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.approveBtn:disabled,
+.rejectBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.alreadyVoted {
+  font-size: 0.82rem;
+  color: var(--color-success);
+  padding: 4px 0;
+}
+
+.campaignLink {
+  font-size: 0.82rem;
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.campaignLink:hover {
+  text-decoration: underline;
+}
+
+/* Feedback messages */
+.voteError {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  color: #fca5a5;
+}
+
+.voteSuccessMsg {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid var(--color-success);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  color: #6ee7b7;
+}
+
+.formError {
+  margin-top: 12px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  font-size: 0.88rem;
+  color: #fca5a5;
+}
+
+.formSuccess {
+  margin-top: 12px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid var(--color-success);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  font-size: 0.88rem;
+  color: #6ee7b7;
+}
+
+.stakeError {
+  font-size: 0.82rem;
+  color: #fca5a5;
+  margin-top: 6px;
+}
+
+.stakeSuccess {
+  font-size: 0.82rem;
+  color: #6ee7b7;
+  margin-top: 6px;
+}
+
+/* Spinner (same keyframe as ValidatorDashboard) */
+.btnSpinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Finalised section */
+.finalisedSection {
+  margin-top: 24px;
+}
+
+.noticeSection {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 24px;
+  color: var(--color-text-muted);
+  font-size: 0.92rem;
+}

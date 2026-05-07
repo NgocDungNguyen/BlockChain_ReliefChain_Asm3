@@ -9,6 +9,8 @@ import {
   setActiveContractAddress,
   getActiveContractAddress,
   fetchAllCampaigns,
+  checkIsGlobalValidator,
+  getValidatorStake,
   CHAIN_ID,
   FACTORY_ADDRESS,
   type CampaignRecord,
@@ -22,9 +24,10 @@ import {
 import { Donation }           from "./components/Donation";
 import { Requests }           from "./components/Requests";
 import { ValidatorDashboard } from "./components/ValidatorDashboard";
+import { ProposalDashboard }  from "./components/ProposalDashboard";
 import styles                  from "./styles/App.module.css";
 
-type Tab = "donate" | "requests" | "dashboard";
+type Tab = "donate" | "requests" | "dashboard" | "proposals";
 
 export default function App() {
   const [provider,     setProvider]     = useState<ethers.providers.Web3Provider | null>(null);
@@ -34,9 +37,11 @@ export default function App() {
   const [connected,    setConnected]    = useState(false);
   const [connecting,   setConnecting]   = useState(false);
   const [networkError, setNetworkError] = useState<string>("");
-  const [isValidator,  setIsValidator]  = useState(false);
-  const [isOwner,      setIsOwner]      = useState(false);
-  const [activeTab,    setActiveTab]    = useState<Tab>("donate");
+  const [isValidator,        setIsValidator]        = useState(false);
+  const [isOwner,            setIsOwner]            = useState(false);
+  const [isGlobalValidator,  setIsGlobalValidator]  = useState(false);
+  const [myValidatorStake,   setMyValidatorStake]   = useState<ethers.BigNumber>(ethers.BigNumber.from(0));
+  const [activeTab,          setActiveTab]          = useState<Tab>("donate");
 
   // ─── Multi-campaign state ────────────────────────────────────────────────
   const [campaigns,         setCampaigns]         = useState<CampaignRecord[]>([]);
@@ -104,6 +109,20 @@ export default function App() {
     }
   }, []);
 
+  const checkGlobalRole = useCallback(async (addr: string) => {
+    try {
+      const [isGV, stake] = await Promise.all([
+        checkIsGlobalValidator(addr),
+        getValidatorStake(addr),
+      ]);
+      setIsGlobalValidator(isGV);
+      setMyValidatorStake(stake);
+    } catch {
+      setIsGlobalValidator(false);
+      setMyValidatorStake(ethers.BigNumber.from(0));
+    }
+  }, []);
+
   // ─── Campaign switching ───────────────────────────────────────────────────
   function handleSelectCampaign(addr: string) {
     if (addr === selectedCampaign) return;
@@ -141,7 +160,7 @@ export default function App() {
     setChainId(wallet.chainId);
     setConnected(true);
     setNetworkError("");
-    await checkRoles(wallet.address);
+    await Promise.all([checkRoles(wallet.address), checkGlobalRole(wallet.address)]);
     setConnecting(false);
   }
 
@@ -165,6 +184,8 @@ export default function App() {
     setConnected(false);
     setIsValidator(false);
     setIsOwner(false);
+    setIsGlobalValidator(false);
+    setMyValidatorStake(ethers.BigNumber.from(0));
     setNetworkError("");
   }
 
@@ -176,6 +197,7 @@ export default function App() {
       } else {
         setAddress(accounts[0]);
         checkRoles(accounts[0]);
+        checkGlobalRole(accounts[0]);
       }
     }
 
@@ -195,7 +217,7 @@ export default function App() {
 
     subscribeToWalletEvents(onAccountChange, onChainChange);
     return () => unsubscribeWalletEvents(onAccountChange, onChainChange);
-  }, [checkRoles]);
+  }, [checkRoles, checkGlobalRole]);
 
   function shortAddress(addr: string): string {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -262,8 +284,9 @@ export default function App() {
             <div className={styles.connectedRow}>
               <span className={styles.connectedDot} aria-hidden="true" />
               <span className={styles.connectedAddr}>{shortAddress(address)}</span>
-              {isOwner     && <span className={styles.roleBadge + " " + styles.ownerBadge}>Owner</span>}
-              {isValidator && <span className={styles.roleBadge + " " + styles.validatorBadge}>Validator</span>}
+              {isOwner            && <span className={styles.roleBadge + " " + styles.ownerBadge}>Owner</span>}
+              {isValidator        && <span className={styles.roleBadge + " " + styles.validatorBadge}>Validator</span>}
+              {isGlobalValidator  && <span className={styles.roleBadge + " " + styles.globalValidatorBadge}>Global Validator</span>}
               <span className={styles.chainBadge}>{chainLabel(chainId ?? CHAIN_ID)}</span>
               <button className={styles.disconnectBtn} onClick={handleDisconnect} type="button">
                 Disconnect
@@ -337,6 +360,15 @@ export default function App() {
               : "Validator Panel"}
           </button>
         )}
+        {connected && (
+          <button
+            className={`${styles.tab} ${activeTab === "proposals" ? styles.tabActive : ""}`}
+            onClick={() => setActiveTab("proposals")}
+            type="button"
+          >
+            {isGlobalValidator ? "Proposals (Vote)" : "Proposals"}
+          </button>
+        )}
       </nav>
 
       {/* ── Content ───────────────────────────────────────────────────────── */}
@@ -374,6 +406,17 @@ export default function App() {
             connected={connected}
             isValidator={isValidator}
             isOwner={isOwner}
+          />
+        )}
+        {activeTab === "proposals" && (
+          <ProposalDashboard
+            signer={signer}
+            provider={provider}
+            address={address}
+            connected={connected}
+            isGlobalValidator={isGlobalValidator}
+            myValidatorStake={myValidatorStake}
+            onStakeChanged={() => address && checkGlobalRole(address)}
           />
         )}
       </main>
