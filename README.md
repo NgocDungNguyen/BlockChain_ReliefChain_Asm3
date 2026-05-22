@@ -538,8 +538,8 @@ Follow phases in order for a complete demonstration.
 
 #### Step 8A — Stake ETH as a validator
 
-**Global Validator 4 (Account #4)**
-1. Switch MetaMask to Account #4 → Connect Wallet
+**Global Validator 3 (Account #3)**
+1. Switch MetaMask to Account #3 → Connect Wallet
 2. Go to **Proposals** tab
 3. **Stake Management** panel shows current stake (already 0.05 ETH from deploy script)
 4. Enter `0.05` in the stake input → click **Stake ETH** → confirm MetaMask
@@ -547,71 +547,23 @@ Follow phases in order for a complete demonstration.
 
 #### Step 8B — Withdraw part of stake
 
-**Global Validator 3 (Account #3)**
+**Global Validator 4 (Account #4)**
 1. In **Stake Management** → enter `0.04` in the withdraw input → click **Withdraw**
 2. Confirm MetaMask → stake balance drops to `0.06 ETH`
 3. Withdrawal is blocked if remaining amount would drop below the 0.01 ETH minimum
 
 #### Step 8C — Admin slashes a validator (fraud penalty)
 
-Real-world scenario: The admin has evidence that Global Validator 5 colluded in approving a fraudulent campaign proposal. As an economic penalty, the admin confiscates part of their staked ETH — reducing their collateral and signalling misconduct to the community.
+> This step requires the admin account and is done in MetaMask or simulated via deploy script output.
 
-The deploy script already demonstrated a slash automatically. Terminal 2 shows:
-
-\`\`\`
-------------------------------------------------------------
-DEMO: Validator Stake Slashing (anti-fraud penalty)
-------------------------------------------------------------
-gv5 stake before slash: 0.05 ETH
-gv5 stake after slash : 0.04 ETH
-Slashed amount returned to admin treasury.
-\`\`\`
-
-To demonstrate the slash live via Hardhat console (Terminal 4):
-
-Open a fourth terminal tab while Terminal 1 (Hardhat node) is still running:
-
-\`\`\`bash
-cd backend
-npx hardhat console --network localhost
-\`\`\`
-
-Once inside the console, paste each line one at a time and press Enter:
-
-\`\`\`javascript
-// Connect to the deployed factory
-const factory = await ethers.getContractAt("CampaignFactory", "0x5FbDB2315678afecb367f032d93F642f64180aa3")
-
-// GV5 address
-const gv5 = "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc"
-
-// Check stake BEFORE slash
-const before = await factory.validatorStake(gv5)
-console.log("Stake before:", ethers.utils.formatEther(before), "ETH")
-
-// Admin (Account #0) slashes GV5 by 0.01 ETH
-const [admin] = await ethers.getSigners()
-await factory.connect(admin).slashValidator(gv5, ethers.utils.parseEther("0.01"))
-
-// Check stake AFTER slash
-const after = await factory.validatorStake(gv5)
-console.log("Stake after:", ethers.utils.formatEther(after), "ETH")
-\`\`\`
-
-Expected output:
-
-\`\`\`
-Stake before: 0.04 ETH
-Stake after:  0.03 ETH
-\`\`\`
-
-Exit the console when done:
-
-\`\`\`
-.exit
-\`\`\`
-
-**Note:** The factory address above (\`0x5FbDB2315678afecb367f032d93F642f64180aa3\`) is deterministic on a fresh Hardhat node. If you restarted the node and redeployed, this address will be the same.`;
+**Admin / Deployer (Account #0)**
+- The deploy script already demonstrates a slash on Global Validator 5 in Terminal 2 output:
+  ```
+  gv5 stake before slash: 0.05 ETH
+  gv5 stake after slash : 0.04 ETH
+  Slashed amount returned to admin treasury.
+  ```
+- To demonstrate in the UI, connect as Account #0 — the slash function is callable directly from the contract via a future admin panel (or via Hardhat console for demo purposes)
 
 ---
 
