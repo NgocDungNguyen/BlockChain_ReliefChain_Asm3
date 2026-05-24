@@ -251,6 +251,17 @@ cd backend
 npx hardhat run scripts/deploy.ts --network localhost
 ```
 
+
+**Node.js v24 (if you see `FATAL ERROR: Zone Allocation failed` or out-of-memory crash):**
+
+```powershell
+cd backend
+$env:NODE_OPTIONS="--max-old-space-size=4096"
+npx hardhat run scripts/deploy.ts --network localhost
+```
+
+> The `viaIR: true` compiler setting used in this project significantly increases memory usage during compilation. Node.js v24 hits the default heap limit. The `--max-old-space-size=4096` flag raises the limit to 4 GB, which is sufficient for the compile + deploy to complete. Node.js v18 does not have this issue.
+
 The deploy script:
 1. Deploys `CampaignFactory` with 5 global validators and 3-of-5 threshold
 2. Each validator stakes 0.05 ETH (skin-in-the-game)
@@ -547,24 +558,57 @@ Follow phases in order for a complete demonstration.
 
 #### Step 8B — Withdraw part of stake
 
-**Global Validator 4 (Account #4)**
+**Global Validator 3 (Account #3)**
 1. In **Stake Management** → enter `0.04` in the withdraw input → click **Withdraw**
 2. Confirm MetaMask → stake balance drops to `0.06 ETH`
 3. Withdrawal is blocked if remaining amount would drop below the 0.01 ETH minimum
 
 #### Step 8C — Admin slashes a validator (fraud penalty)
 
-> This step requires the admin account and is done in MetaMask or simulated via deploy script output.
+The slash function is called directly on the `CampaignFactory` contract by the admin. The deploy script already runs a slash automatically and prints the result in Terminal 2:
 
-**Admin / Deployer (Account #0)**
-- The deploy script already demonstrates a slash on Global Validator 5 in Terminal 2 output:
-  ```
-  gv5 stake before slash: 0.05 ETH
-  gv5 stake after slash : 0.04 ETH
-  Slashed amount returned to admin treasury.
-  ```
-- To demonstrate in the UI, connect as Account #0 — the slash function is callable directly from the contract via a future admin panel (or via Hardhat console for demo purposes)
+```
+gv5 stake before slash: 0.05 ETH
+gv5 stake after slash : 0.04 ETH
+Slashed amount returned to admin treasury.
+```
 
+To demonstrate this live during the demo, run the following commands in a **Hardhat console** (open a fourth terminal tab):
+
+```bash
+cd backend
+npx hardhat console --network localhost
+```
+
+Then paste these commands one by one:
+
+```javascript
+// Attach to the deployed factory (replace with your actual factory address from Terminal 2 output)
+const factory = await ethers.getContractAt("CampaignFactory", "0x5FbDB2315678afecb367f032d93F642f64180aa3")
+
+// Target: Global Validator 5
+const gv5 = "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc"
+
+// Check stake before
+const before = await factory.validatorStake(gv5)
+console.log("Stake before:", ethers.utils.formatEther(before), "ETH")
+
+// Admin (Account #0) slashes 0.01 ETH from gv5
+const [admin] = await ethers.getSigners()
+await factory.connect(admin).slashValidator(gv5, ethers.utils.parseEther("0.01"))
+
+// Check stake after
+const after = await factory.validatorStake(gv5)
+console.log("Stake after:", ethers.utils.formatEther(after), "ETH")
+```
+
+Expected output:
+```
+Stake before: 0.05 ETH
+Stake after:  0.04 ETH
+```
+
+> Replace `0x5FbDB2315678afecb367f032d93F642f64180aa3` with the `VITE_FACTORY_ADDRESS` value printed by your Terminal 2 deploy output.
 ---
 
 ## 9. Feature and Role Summary
@@ -709,6 +753,7 @@ $env:REPORT_GAS="true"; npx hardhat test
 | IPFS upload fails or returns no CID | Verify `VITE_PINATA_JWT` is set in `frontend/.env`. Restart Vite after saving. |
 | Donation History not updating | Click **Refresh** button or switch tabs to remount the component. |
 | MetaMask "nonce too high" | Reset MetaMask account: Settings → Advanced → Reset Account. Occurs after restarting the Hardhat node. |
+| `FATAL ERROR: Zone Allocation failed - process out of memory` | Node.js v24 memory limit exceeded during compile. Run: `$env:NODE_OPTIONS="--max-old-space-size=4096"` before the deploy command, or downgrade to Node.js v18 LTS. |
 | `No matching export CAMPAIGN_FACTORY_ABI` | File is empty. Open `src/contracts/CampaignFactory.abi.ts`, paste full content, save. |
 
 ---
